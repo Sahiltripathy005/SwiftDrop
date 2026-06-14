@@ -35,13 +35,18 @@ io.on("connection", (socket) => {
     console.log("Connected:", socket.id);
 
     socket.on("join-room", ({ room, deviceName }) => {
+        socket.data.room = room;
+
         socket.join(room);
 
         console.log(`${deviceName} joined room ${room}`);
 
-        socket.to(room).emit("device-connected", {
-            deviceName,
-            socketId: socket.id,
+        const roomSize =
+            io.sockets.adapter.rooms.get(room)?.size || 0;
+
+        io.to(room).emit("room-status", {
+            connected: roomSize >= 2,
+            count: roomSize,
         });
     });
 
@@ -87,6 +92,20 @@ io.on("connection", (socket) => {
 
     socket.on("disconnect", () => {
         console.log("Disconnected:", socket.id);
+
+        const room = socket.data.room;
+
+        if (!room) return;
+
+        setTimeout(() => {
+            const roomSize =
+                io.sockets.adapter.rooms.get(room)?.size || 0;
+
+            io.to(room).emit("room-status", {
+                connected: roomSize >= 2,
+                count: roomSize,
+            });
+        }, 100);
     });
 });
 
@@ -104,23 +123,23 @@ app.use(
 );
 
 app.get(/.*/, (req, res) => {
-  res.sendFile(
-    path.join(
-      __dirname,
-      "../frontend/dist/index.html"
-    )
-  );
+    res.sendFile(
+        path.join(
+            __dirname,
+            "../frontend/dist/index.html"
+        )
+    );
 });
 
 app.post("/shutdown", (req, res) => {
-  res.json({
-    success: true,
-    message: "Shutting down..."
-  });
+    res.json({
+        success: true,
+        message: "Shutting down..."
+    });
 
-  setTimeout(() => {
-    process.exit(0);
-  }, 1000);
+    setTimeout(() => {
+        process.exit(0);
+    }, 1000);
 });
 
 server.listen(5000, () => {
